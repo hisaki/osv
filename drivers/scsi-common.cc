@@ -103,6 +103,7 @@ int scsi_common::exec_synccache(u16 target, u16 lun, struct bio *bio, u8 cmd)
 
 void scsi_common::exec_inquery(u16 target, u16 lun)
 {
+    printf("scsi_common: Beginning of exec_inquery()\n");
     struct bio *bio = alloc_bio();
     if (!bio)
         throw std::runtime_error("Fail to alloate bio");
@@ -112,10 +113,14 @@ void scsi_common::exec_inquery(u16 target, u16 lun)
     bio->bio_data = data;
 
     auto req = alloc_scsi_req(bio, target, lun, CDB_CMD_INQUIRY);
+    printf("scsi_common: exec_inquery(): alloc_scsi_req() is done\n");
 
     make_request(bio);
-    bio_wait(bio);
+    printf("scsi_common: exec_inquery(): make_request() is done\n");
+    bio_wait(bio); // <----------------- Dead Lock
+    printf("scsi_common: exec_inquery(): bio_wait() is done\n");
     destroy_bio(bio);
+    printf("scsi_common: exec_inquery(): destroy_bio() is done\n");
 
     auto response = req->response;
     if (response != SCSI_OK)
@@ -265,11 +270,16 @@ bool scsi_common::test_lun(u16 target, u16 lun)
 {
     bool ready = false;
     u8 nr = 0;
+    printf("scsi_common: Beginning of test_lun()\n");
 
     do {
+        printf("scsi_common: test_lun(): do-while nr=%d\n", nr);
         try {
+            printf("scsi_common: test_lun(): before exec_inquery()\n"); 
             exec_inquery(target, lun);
+            printf("scsi_common: test_lun(): exec_inquery() is done\n");
             exec_test_unit_ready(target, lun);
+            printf("scsi_common: test_lun(): exec_test_unit_ready() is done\n");
         } catch (std::runtime_error err) {
             nr++;
             continue;
@@ -277,6 +287,7 @@ bool scsi_common::test_lun(u16 target, u16 lun)
         ready = true;
     } while (nr < 2 && !ready);
 
+    printf("scsi_common: test_lun() returns %d\n", ready);
     return ready;
 }
 

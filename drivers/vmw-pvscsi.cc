@@ -114,6 +114,7 @@ bool pvscsi::add_desc(struct bio *bio)
     barrier();
     s->req_prod_idx++;
 
+    debug("vmw-pvscsi: add_desc(): req_prod_idx=%d on CPU %d\n", s->req_prod_idx, sched::cpu::current()->id); 
     kick_desc(cmd);
 
     return true;
@@ -255,8 +256,11 @@ void pvscsi::req_done()
 {
     auto s = _ring_state;
     pvscsi_ring_cmp_desc *desc;
+    debug("vmw-pvscsi: req_done() is interrupted!\n");
     while (1) {
         sched::thread::wait_until([=] { return s->cmp_cons_idx != s->cmp_prod_idx;});
+        debug("vmw-pvscsi: req_done(): Left sched::thread::wait_until(): cmp_cons_idx=%d,cmp_prod_idx=%d on CPU %d\n",
+              s->cmp_cons_idx, s->cmp_prod_idx, sched::cpu::current()->id);
         u32 cmp_entries = s->cmp_nr;
         while (s->cmp_cons_idx != s->cmp_prod_idx) {
             desc = _ring_cmp + (s->cmp_cons_idx & mask(cmp_entries));
@@ -281,6 +285,7 @@ void pvscsi::req_done()
             barrier();
             s->cmp_cons_idx++;
 
+            debug("vmw-pvscsi: req_done(): In-while(): cmp_cons_idx=%d\n", s->cmp_cons_idx);
             _waiter.wake();
         }
     }
@@ -310,14 +315,20 @@ void pvscsi::add_lun(u16 target, u16 lun)
     struct device *dev;
     size_t devsize;
 
-    if (!test_lun(target, lun))
+    debug("vmw-pvscsi: Beginning of add_lun()!\n");
+
+    if (!test_lun(target, lun)) {
+        debug("vmw-pvscsi: test_lun() returns false\n");
         return;
+    }
 
     exec_read_capacity(target, lun, devsize);
+    debug("vmw-pvscsi: exec_read_capacity() is done\n");
 
     std::string dev_name("vblk");
     dev_name += std::to_string(_disk_idx++);
     dev = device_create(&pvscsi_driver, dev_name.c_str(), D_BLK);
+    debug("vmw-pvscsi: device_create() is done\n");
     prv = static_cast<struct pvscsi_priv*>(dev->private_data);
     prv->strategy = pvscsi_strategy;
     prv->drv = this;

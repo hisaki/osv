@@ -6,7 +6,7 @@ cat << 'EOF' > $VMX_FILE
 #!/usr/bin/vmware
 .encoding = "UTF-8"
 config.version = "8"
-virtualHW.version = "8"
+virtualHW.version = "9"
 scsi0.present = "TRUE"
 scsi0.virtualDev = "pvscsi"
 memsize = "1024"
@@ -29,4 +29,5 @@ serial0.fileType = "network"
 serial0.fileName = "telnet://127.0.0.1:10000"
 debugStub.listen.guest64 = "TRUE"
 debugStub.listen.guest64.remote = "TRUE"
+numvcpus = "1"
 EOF
